@@ -1,0 +1,312 @@
+import java.util.Random;
+import java.util.ArrayList;
+/**
+ * Created by Sydney Lazard on 6/21/2015.
+ */
+
+/**
+ * Class representing a Mahjong board with tiles in it.
+ */
+public class Board {
+    ///**
+    //* Random variable used to construct the playing board.
+    //*/
+    //private Random random;
+
+    ///**
+    // * Number of tiles in a group - constant
+    // * 4 of each tile with some suit and some value
+    // */
+    //public static final int GROUPSIZE = 4;
+
+    ///**
+    // * Number of groups on the board - constant
+    // */
+    //public static final int NUMBERGROUPS = 36; // 36 * 4 = 144 (total tiles)
+
+    /**
+     * Height of current board
+     */
+    private int height; // ignoring staggaring tiles
+
+    /**
+     * Width of current board
+     */
+    private int width; // ignoring staggaring tiles
+
+    /**
+     * Depth of current board
+     */
+    private int depth; // layers
+
+    /**
+     * Actual board with Mahjong tiles
+     */
+    private Tile[][][] tiles; // z,x,y
+
+    /**
+     * List of all free tiles on the board.
+     */
+    public ArrayList<Tile> freeTiles;
+
+    /**
+     * List of free pairs
+     */
+    public ArrayList<Match> freePairs;
+
+    /**
+     * Constructor for a board with random to generate tile set up
+     */
+    public Board( Tile[][][] inputTiles) {
+        //random = random1;
+        height = 8;
+        width = 15;
+        depth = 4;
+
+        freeTiles = new ArrayList<Tile>();
+        freePairs = new ArrayList<Match>();
+
+        //input for tiles??
+        tiles = new Tile[depth][width][height]; // depth (z) first so we start at top and work down
+
+        boolean[][][] visitedTiles = new boolean[depth][width][height];
+
+        /**
+         * Input tiles copied to array of tiles
+         */
+        Tile currentTile;
+        for (int z = 0; z < depth; z++) { // Layer
+            for (int x = 0; x < height; x++) { // Row
+                for (int y = 0; y < height; y++) { // Column
+                    if (inputTiles[z][x][y] == null) { // No tile there
+                        tiles[z][x][y] = null; // then no tile in array of tiles on board
+                    } else {
+                        if (!visitedTiles[z][x][y]) {
+                            currentTile = inputTiles[z][x][y];
+                            tiles[z][x][y] = new Tile(currentTile.getSuit(),
+                                    currentTile.getValue());
+                            currentTile = tiles[z][x][y];
+                            currentTile.setZ(z);
+                            currentTile.setX(x);
+                            currentTile.setY(y);
+                            visitedTiles[z][x][y] = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        buildFreeTiles();
+        buildFreePairs();
+
+    }
+
+    //TILEASSIGNER -> RANDOM (To Be Done Later)
+
+    // GETTERS TO BE USED LATER
+    /**
+     * Getter for the depth of the board
+     * level 0 is the top most level
+     * @return int
+     */
+    public int getDepth() {
+        return depth;
+    }
+
+    /**
+     * Getter for the height of the board
+     * aka how many rows
+     * @return int
+     */
+    public int getHeight() {
+        return height;
+    }
+
+    /**
+     * Getter for the width of the board
+     * aka how many columns
+     * @return int
+     */
+    public int getWidth() {
+        return width;
+    }
+
+    /**
+     * Getter for the Array of all tiles on the board
+     * @return Tile[][][]
+     */
+    public Tile[][][] getTiles() {
+        return tiles;
+    }
+
+    /**
+     * Getter gor the Array of all the open tiles on the board
+     * Moveable tiles
+     * @return ArrayList<Tile>
+     */
+    public ArrayList<Tile> getFreeTiles() {
+        return freeTiles;
+    }
+
+    /**
+     * Getter for the Array of matches on the board
+     * open and paired tiles, all possible moves
+     * @return ArrayList<Match>
+     */
+    public ArrayList<Match> getFreePairs() {
+        return freePairs;
+    }
+
+    /**
+     * Calculates the number of moves available on the board
+     * @return int
+     */
+    public int numberOfMoves() {
+        return freePairs.size();
+    }
+
+    /**
+     * Determines if this tile is visible
+     * A tile is visible if there are no tiles directly over it
+     * @param tile Tile
+     * @return boolean
+     */
+    public boolean isVisibleTile(Tile tile) {
+        int column = tile.getColumn();
+        int row = tile.getRow();
+        int layer = tile.getLayer();
+
+        return layer == depth - 1 || tiles[layer + 1][column][row] == null;
+    }
+
+    /**
+     * Determines if this tile is a free tile
+     * A tile is free if it can either move left or right without disturbing another tile
+     * @param tile Tile
+     * @return boolean
+     */
+    public boolean isFreeTile(Tile tile) {
+        int column = tile.getColumn();
+        int row = tile.getRow();
+        int layer = tile.getLayer();
+
+        // Tile must be visible and either the left most or right most tile in row
+        // first tile in row is always open
+        return isVisibleTile(tile) && (tiles[layer][column - 1][row] == null
+                || tiles[layer][column + 1][row] == null
+                || column == 0 || column + 1 == width - 1);
+    }
+
+    /**
+     * Builder for Array of all free tiles on board
+     */
+    public void buildFreeTiles() {
+        Tile tile;
+        freeTiles.clear();
+
+        for (int z = 0; z < depth; z++) {
+            for (int x = 0; x < width; x++) {
+                for (int y = 0; y < height; y++) {
+                    tile = tiles[z][x][y];
+                    if (!freeTiles.contains(tile) && isFreeTile(tile) && (tile != null)) {
+                        freeTiles.add(tile);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Builder for the Array of matches representing all free pairs on the board
+     */
+    public void buildFreePairs() {
+        Tile tile1;
+        Tile tile2;
+        freePairs.clear();
+
+        for (int i = 0; i < freeTiles.size(); i++) {
+            tile1 = freeTiles.get(i);
+            for (int j = 1; j < freeTiles.size() - 1; j++) {
+                tile2 = freeTiles.get(j);
+                if (tile1.isMatch(tile2)) {
+                    freePairs.add(new Match(tile1, tile2)); // can have multiple matches with same tile
+                }
+            }
+        }
+    }
+
+    /**
+     * Determines if the given pair is open
+     * @param tile1 Tile
+     * @param tile2 Tile
+     * @return a boolean representing the state of the pair
+     */
+    public boolean isFreePair(Tile tile1, Tile tile2) {
+        return isFreeTile(tile1) && isFreeTile(tile2)
+                && (tile1.isMatch(tile2));
+    }
+
+    /**
+     * Removes the given pair from the board and list of free tiles and pairs
+     * @param tile1 Tile
+     * @param tile2 Tile
+     */
+    public void removePair(Tile tile1, Tile tile2) {
+        int layer1 = tile1.getLayer();
+        int layer2 = tile2.getLayer();
+        int column1 = tile1.getColumn();
+        int column2 = tile2.getColumn();
+        int row1 = tile1.getRow();
+        int row2 = tile2.getRow();
+
+        tiles[layer1][column1][row1] = null;
+        tiles[layer2][column2][row2] = null;
+
+        freeTiles.remove(tile1);
+        freeTiles.remove(tile2);
+        freePairs.remove(new Match(tile1, tile2));
+
+        buildFreeTiles();
+        buildFreePairs();
+
+    }
+
+    /**
+     * ALGORITHM
+     * ----------------------------------------------------------------------
+     * A greedy algorithm for determining the best move on the current board
+     * compares the state of the board after a move is made by comparing the
+     * number of moves available after
+     *
+     * @return Match - Best move to make
+     */
+    public Match hintAlgorithm() {
+        Match bestMatch = freePairs.get(0);
+        int currentMax = hintHelper(freePairs.get(0));
+        for (int i = 1; i < freePairs.size(); i++) {
+            Match currentMatch = freePairs.get(i);
+            int matchMovesAfter = hintHelper(currentMatch);
+            if (matchMovesAfter > currentMax) {
+                bestMatch = currentMatch;
+                currentMax = matchMovesAfter;
+            } // If it is a tie it should remain the same best match
+        }
+        return bestMatch;
+    }
+
+    /**
+     * Helper for the hint Algorithm
+     * Determines how many free pairs exist on a board with the given match removed
+     * if this move were to be played how many open matches will there be
+     * @param match hypothetical pair from a move
+     * @return int - new moves available
+     */
+    public int hintHelper(Match match) {
+        Tile tile1 = match.getTile1();
+        Tile tile2 = match.getTile2();
+        Board matchBoard = new Board(tiles);
+        matchBoard.removePair(tile1, tile2);
+        return matchBoard.freePairs.size();
+    }
+
+}
